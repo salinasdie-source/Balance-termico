@@ -2,7 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
 <title>Balance Térmico — Calefacción y Refrigeración</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -104,15 +108,97 @@
   }
   .unit-btn:hover { border-color: var(--border2); color: var(--text); }
   .unit-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+
+  /* ── Login ─────────────────────────── */
+  #login-overlay {
+    position:fixed; inset:0; background:var(--bg3);
+    display:flex; align-items:center; justify-content:center;
+    z-index:1000; padding:20px;
+  }
+  .login-box {
+    background:var(--bg); border:.5px solid var(--border);
+    border-radius:var(--radius); padding:32px 28px;
+    width:100%; max-width:360px; box-shadow:0 8px 32px rgba(0,0,0,0.12);
+  }
+  .login-box h2 { font-size:18px; font-weight:600; margin-bottom:4px; }
+  .login-box p  { font-size:13px; color:var(--text2); margin-bottom:24px; }
+  .login-field  { margin-bottom:14px; }
+  .login-field label { font-size:12px; color:var(--text2); display:block; margin-bottom:5px; }
+  .login-field input {
+    width:100%; padding:10px 12px; font-size:14px;
+    background:var(--bg2); border:.5px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text); outline:none;
+    transition:border-color .15s;
+  }
+  .login-field input:focus { border-color:var(--border2); }
+  .login-btn {
+    width:100%; padding:11px; font-size:14px; font-weight:500;
+    background:var(--text); color:var(--bg); border:none;
+    border-radius:var(--radius-sm); cursor:pointer; margin-top:4px;
+    transition:opacity .15s;
+  }
+  .login-btn:active { opacity:0.8; }
+  .login-error {
+    font-size:12px; color:#D85A30; margin-top:10px;
+    text-align:center; min-height:18px;
+  }
+  /* ── Mobile responsive extras ───────── */
+  @media (max-width:600px){
+    .container { padding:10px; }
+    .tab { font-size:12px; padding:7px 10px; }
+    .header { padding:12px 14px; }
+    .metric .val { font-size:17px; }
+    table { font-size:12px; }
+    .g4 { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:400px){
+    .tab-row { gap:4px; }
+    .tab { font-size:11px; padding:6px 8px; }
+    .g2,.g3 { grid-template-columns:1fr; }
+  }
+  /* Header logout button */
+  .logout-btn {
+    margin-left:auto; font-size:12px; padding:5px 12px;
+    background:transparent; border:.5px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text2); cursor:pointer;
+  }
+  .logout-btn:hover { background:var(--bg2); }
+  /* App hidden until logged in */
+  #app-content { display:none; }
+
 </style>
 </head>
 <body>
 
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>⚡ Balance Térmico</h2>
+    <p>Ingresá con tu usuario para continuar</p>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="login-user" placeholder="usuario" autocomplete="username"
+             onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="contraseña" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP CONTENT -->
+<div id="app-content">
 <div class="header">
   <i class="ti ti-temperature" style="font-size:22px;color:var(--amber)"></i>
   <div>
     <div class="header h1" style="font-size:16px;font-weight:500">Balance Térmico</div>
     <div class="sub">Calefacción · Refrigeración · Psicrometría</div>
+  <span id="header-user" style="margin-left:auto;font-size:12px;color:var(--text2)"></span>
+  <button class="logout-btn" onclick="doLogout()">Salir</button>
   </div>
 </div>
 
@@ -172,8 +258,17 @@
         <div class="fld"><label>Bulbo húmedo (°C)</label><input type="number" id="int-bh" value="14.5" step="0.5" oninput="syncPsy('int','bh')"></div>
         <div class="fld"><label>HR interior (%)</label><input type="number" id="int-hr" value="50" step="1" min="0" max="100" oninput="syncPsy('int','hr')"></div>
       </div>
-      <div class="g2">
+      <div class="g3" style="margin-bottom:10px">
         <div class="fld"><label>Ocupantes</label><input type="number" id="pers" value="2" min="0" oninput="recalc()"></div>
+        <div class="fld"><label>Actividad</label>
+          <select id="actividad" onchange="recalc()">
+            <option value="70,45">Sedentario / Teatro</option>
+            <option value="65,55" selected>Oficina / Reunión</option>
+            <option value="55,70">Trabajo de pie</option>
+            <option value="40,90">Actividad moderada</option>
+            <option value="25,115">Actividad alta</option>
+          </select>
+        </div>
         <div class="fld"><label>Equipos eléctricos (W)</label><input type="number" id="equip" value="200" step="10" oninput="recalc()"></div>
       </div>
     </div>
@@ -221,30 +316,31 @@
       <table id="surfs-horiz" style="width:100%;border-collapse:collapse;min-width:400px"></table>
     </div>
 
-    <p class="sec">Ventanas y ventilación</p>
+    <p class="sec">Ventilación y datos solares</p>
     <div class="card">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Las ventanas se definen por muro en la tabla de superficies.</p>
       <div class="g3" style="margin-bottom:10px">
-        <div class="fld"><label>Área vidrios (m²)</label><input type="number" id="avid" value="4" step="0.1" min="0" oninput="recalc()"></div>
-        <div class="fld"><label>Tipo de vidrio</label>
+        <div class="fld"><label>Radiación solar (W/m²)</label><input type="number" id="rad" value="600" step="10" oninput="recalc()"></div>
+        <div class="fld"><label>Tipo vidrio (global)</label>
           <select id="uvid" onchange="recalc()">
             <option value="5.8">Simple (U=5.8)</option>
             <option value="2.8" selected>DVH (U=2.8)</option>
             <option value="1.1">Triple (U=1.1)</option>
           </select>
         </div>
-        <div class="fld"><label>Factor solar</label><input type="number" id="fs" value="0.6" step="0.05" min="0" max="1" oninput="recalc()"></div>
+        <div class="fld"><label>Factor solar vidrio</label><input type="number" id="fs" value="0.6" step="0.05" min="0" max="1" oninput="recalc()"></div>
       </div>
-      <div class="g3">
-        <div class="fld"><label>Radiación solar (W/m²)</label><input type="number" id="rad" value="600" step="10" oninput="recalc()"></div>
-        <div class="fld"><label>Orientación ventanas</label>
-          <select id="orient-ventanas" onchange="recalc()" style="font-size:13px">
-            <option value="N" selected>Norte</option>
-            <option value="S">Sur</option>
-            <option value="E">Este</option>
-            <option value="O">Oeste</option>
+      <div class="g2">
+        <div class="fld"><label>Modo ventilación</label>
+          <select id="vent-modo" onchange="recalc()">
+            <option value="ren">Ren/h</option>
+            <option value="lsp" selected>l/s por persona</option>
           </select>
         </div>
-        <div class="fld"><label>Ventilación (ren/h)</label><input type="number" id="reno" value="0.5" step="0.1" min="0" oninput="recalc()"></div>
+        <div class="fld"><label>Valor ventilación</label>
+          <input type="number" id="reno" value="10" step="0.5" min="0" oninput="recalc()">
+          <span style="font-size:11px;color:var(--text2)" id="reno-label">l/s por persona (ASHRAE min: 8)</span>
+        </div>
       </div>
     </div>
   </div>
@@ -306,7 +402,23 @@
 </div>
 
 <script>
-const MATS={ladrillo:{l:'Ladrillo macizo',u:1.82},bloque:{l:'Bloque hueco',u:1.05},aislada:{l:'Pared aislada',u:0.40},losa:{l:'Losa hormigón',u:2.8},losa_ais:{l:'Losa aislada',u:0.45},contrapiso:{l:'Contrapiso',u:1.4},piso_fl:{l:'Piso flotante',u:0.9}};
+const MATS={
+  // Muros
+  ladrillo:   {l:'Muro ladrillo macizo 30cm',  u:1.82},
+  bloque:     {l:'Muro bloque hueco 20cm',      u:1.05},
+  aislada:    {l:'Muro doble + aislación',       u:0.40},
+  // Techos (valores correctos con resistencias superficiales)
+  losa:       {l:'Losa H° sin aislación',        u:1.80},
+  losa_livia: {l:'Losa H° + cámara + cielorraso',u:0.90},
+  losa_ais:   {l:'Losa H° + aislación 5cm',      u:0.45},
+  chapa:      {l:'Cubierta chapa sin aislación',  u:5.50},
+  chapa_ais:  {l:'Cubierta chapa + 50mm lana',    u:0.60},
+  // Pisos
+  piso_terreno:{l:'Piso sobre terreno (U efectivo)',u:0.45},
+  piso_int:   {l:'Piso interior (entre pisos)',   u:0.00},
+  contrapiso: {l:'Contrapiso sobre losa',          u:1.40},
+  piso_fl:    {l:'Piso flotante sobre losa',       u:0.90},
+};
 // SURFS legacy removed
 const EQUIP_CAL=[{id:'split',l:'Split inverter',icon:'ti-wind',cop:3.8,nota:'Más eficiente'},{id:'rad',l:'Radiador eléctrico',icon:'ti-flame',cop:1.0,nota:'Sin instalación'},{id:'gas',l:'Tiro balanceado',icon:'ti-building',cop:0.92,nota:'Gas, apto interior'},{id:'lena',l:'Estufa a leña',icon:'ti-campfire',cop:0.75,nota:'Bajo costo combustible'}];
 const EQUIP_REF=[{id:'split',l:'Split frío/calor',icon:'ti-wind',eer:3.2,nota:'Recomendado'},{id:'vent',l:'AA de ventana',icon:'ti-device-tv',eer:2.5,nota:'Fácil instalación'},{id:'port',l:'Equipo portátil',icon:'ti-device-mobile',eer:2.1,nota:'Sin obra'},{id:'evap',l:'Enfriador evap.',icon:'ti-droplet',eer:8.0,nota:'Solo climas secos'}];
@@ -484,8 +596,8 @@ const SURFS_MUROS=[
   {id:'mO', l:'Muro Oeste', defOrient:'O', defW:'ang'},
 ];
 const SURFS_HORIZ=[
-  {id:'techo', l:'Techo / Losa', def:'losa'},
-  {id:'piso',  l:'Piso',         def:'contrapiso'},
+  {id:'techo', l:'Techo / Cubierta', def:'losa'},
+  {id:'piso',  l:'Piso',             def:'piso_terreno'},
 ];
 const wallOrient={mN:'N', mS:'S', mE:'E', mO:'O'};
 
@@ -507,6 +619,7 @@ function buildSurfs(){
   surfsEl.innerHTML=`
     <thead><tr>
       <th style="${TH}">Muro</th>
+      <th style="${TH}">Tipo</th>
       <th style="${TH}">Ancho&nbsp;(m)</th>
       <th style="${TH}">Alto&nbsp;(m)</th>
       <th style="${TH}">Área neta&nbsp;(m²)</th>
@@ -514,30 +627,43 @@ function buildSurfs(){
       <th style="${TH}">U&nbsp;(W/m²K)</th>
       <th style="${TH}">Orientación</th>
       <th style="${TH}">Fs&nbsp;solar</th>
+      <th style="${TH}">Ventanas&nbsp;(m²)</th>
     </tr></thead>
     <tbody id="surfs-body"></tbody>`;
 
   const tb=el('surfs-body');
   SURFS_MUROS.forEach(s=>{
     const wDef_val = defW[s.defW];
-    // Solo preservar si el usuario editó manualmente (marcado con data-edited)
     const wEl=el('w_'+s.id), hEl=el('h_'+s.id), aEl=el('area_'+s.id);
     const wVal = (wEl && wEl.dataset.edited) ? wEl.value : wDef_val;
     const hVal = (hEl && hEl.dataset.edited) ? hEl.value : alto.toFixed(1);
     const aVal = (aEl && aEl.dataset.edited) ? aEl.value : (+wVal * +hVal).toFixed(2);
-    const mVal=el('mat_'+s.id)?el('mat_'+s.id).value:'ladrillo';
-    const uVal=el('u_'+s.id)?el('u_'+s.id).value:MATS['ladrillo'].u;
-    const oVal=wallOrient[s.id]||s.defOrient;
-    const fVal=(sf[oVal]||0).toFixed(2);
-    const tr=document.createElement('tr');
+    const mVal = el('mat_'+s.id) ? el('mat_'+s.id).value : 'ladrillo';
+    const uVal = el('u_'+s.id)   ? el('u_'+s.id).value   : MATS['ladrillo'].u;
+    const oVal = wallOrient[s.id] || s.defOrient;
+    const fVal = (sf[oVal]||0).toFixed(2);
+    // Tipo: exterior por defecto
+    const tipoEl = el('tipo_'+s.id);
+    const tipoVal = tipoEl ? tipoEl.value : 'ext';
+    // Ventanas
+    const vidEl = el('vid_'+s.id);
+    const vidVal = vidEl ? vidEl.value : '0';
+
+    const tr = document.createElement('tr');
     tr.innerHTML=`
       <td style="${TD};font-weight:500;white-space:nowrap">${s.l}</td>
+      <td style="${TD}">
+        <select id="tipo_${s.id}" onchange="onTipoChange('${s.id}')" style="${INP}">
+          <option value="ext"${tipoVal==='ext'?' selected':''}>Exterior</option>
+          <option value="int"${tipoVal==='int'?' selected':''}>Interior</option>
+        </select>
+      </td>
       <td style="${TD}"><input type="number" id="w_${s.id}"    value="${wVal}" step="0.1"  min="0" oninput="this.dataset.edited=1;onDimChange('${s.id}')" style="${INP}"></td>
       <td style="${TD}"><input type="number" id="h_${s.id}"    value="${hVal}" step="0.1"  min="0" oninput="this.dataset.edited=1;onDimChange('${s.id}')" style="${INP}"></td>
       <td style="${TD}"><input type="number" id="area_${s.id}" value="${aVal}" step="0.01" min="0" oninput="this.dataset.edited=1;recalc()"               style="${INP}"></td>
       <td style="${TD}"><select id="mat_${s.id}" onchange="onMat('${s.id}')" style="${INP}">${matOpts(mVal)}</select></td>
-      <td style="${TD}"><input type="number" id="u_${s.id}"    value="${uVal}" step="0.01" min="0" oninput="recalc()"               style="${INP}"></td>
-      <td style="${TD}">
+      <td style="${TD}"><input type="number" id="u_${s.id}"    value="${uVal}" step="0.01" min="0" oninput="recalc()"               style="${INP}" id="u_${s.id}"></td>
+      <td style="${TD}" id="orient-cell-${s.id}">
         <select id="orient_${s.id}" onchange="onOrientChange('${s.id}')" style="${INP}">
           <option value="N"${oVal==='N'?' selected':''}>N — Norte</option>
           <option value="S"${oVal==='S'?' selected':''}>S — Sur</option>
@@ -545,8 +671,19 @@ function buildSurfs(){
           <option value="O"${oVal==='O'?' selected':''}>O — Oeste</option>
         </select>
       </td>
-      <td style="${TD};text-align:center;font-weight:600;color:var(--amber-text)" id="sf-label-${s.id}">${fVal}</td>`;
+      <td style="${TD};text-align:center;font-weight:600;color:var(--amber-text)" id="sf-label-${s.id}">${tipoVal==='int'?'—':fVal}</td>
+      <td style="${TD}" id="vid-cell-${s.id}">
+        ${tipoVal==='int'
+          ? '<span style="font-size:11px;color:var(--text3)">—</span>'
+          : `<input type="number" id="vid_${s.id}" value="${vidVal}" step="0.1" min="0" oninput="recalc()" style="${INP}" placeholder="0">`
+        }
+      </td>`;
     tb.appendChild(tr);
+    // Si es interior, deshabilitar orientación y factor solar
+    if(tipoVal==='int'){
+      const uInput=el('u_'+s.id);
+      if(uInput){ uInput.style.opacity='0.4'; uInput.readOnly=true; }
+    }
   });
 
   // -- Tabla techo/piso ------------------------------
@@ -554,6 +691,7 @@ function buildSurfs(){
   horizEl.innerHTML=`
     <thead><tr>
       <th style="${TH}">Superficie</th>
+      <th style="${TH}">Tipo</th>
       <th style="${TH}">Material</th>
       <th style="${TH}">U&nbsp;(W/m²K)</th>
       <th style="${TH}">Área&nbsp;(m²)</th>
@@ -565,16 +703,59 @@ function buildSurfs(){
   SURFS_HORIZ.forEach(s=>{
     const prevA=el('area_'+s.id);
     const aVal = (prevA && prevA.dataset.edited) ? prevA.value : defA;
-    const mVal=el('mat_'+s.id)?el('mat_'+s.id).value:s.def;
-    const uVal=el('u_'+s.id)?el('u_'+s.id).value:MATS[s.def].u;
+    const mVal = el('mat_'+s.id) ? el('mat_'+s.id).value : s.def;
+    const uVal = el('u_'+s.id)   ? el('u_'+s.id).value   : MATS[s.def].u;
+    const tipoEl = el('tipo_'+s.id);
+    const tipoVal = tipoEl ? tipoEl.value : 'ext';
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td style="${TD};font-weight:500;white-space:nowrap">${s.l}</td>
+      <td style="${TD}">
+        <select id="tipo_${s.id}" onchange="onTipoChangeH('${s.id}')" style="${INP}">
+          <option value="ext"${tipoVal==='ext'?' selected':''}>Exterior</option>
+          <option value="int"${tipoVal==='int'?' selected':''}>Interior</option>
+        </select>
+      </td>
       <td style="${TD}"><select id="mat_${s.id}" onchange="onMat('${s.id}')" style="${INP}">${matOpts(mVal)}</select></td>
-      <td style="${TD}"><input type="number" id="u_${s.id}"    value="${uVal}" step="0.01" min="0" oninput="recalc()" style="${INP}"></td>
+      <td style="${TD}"><input type="number" id="u_${s.id}" value="${uVal}" step="0.01" min="0" oninput="recalc()" style="${INP}"></td>
       <td style="${TD}"><input type="number" id="area_${s.id}" value="${aVal}" step="0.01" min="0" oninput="this.dataset.edited=1;recalc()" style="${INP}"></td>`;
     tb2.appendChild(tr);
   });
+}
+
+function onTipoChange(sid){
+  const tipoVal = el('tipo_'+sid)?.value||'ext';
+  const esInt = tipoVal==='int';
+  // Celda de ventanas
+  const vidCell = el('vid-cell-'+sid);
+  if(vidCell){
+    if(esInt){
+      vidCell.innerHTML='<span style="font-size:11px;color:var(--text3)">—</span>';
+    } else {
+      // Restaurar input si no existe ya
+      if(!el('vid_'+sid)){
+        vidCell.innerHTML=`<input type="number" id="vid_${sid}" value="0" step="0.1" min="0" oninput="recalc()" style="${INP}" placeholder="0">`;
+      }
+    }
+  }
+  // Factor solar label
+  const sfLbl = el('sf-label-'+sid);
+  if(sfLbl){
+    if(esInt){ sfLbl.textContent='—'; sfLbl.style.color='var(--text3)'; }
+    else {
+      const sf=solarFactors();
+      const oVal=wallOrient[sid]||'N';
+      sfLbl.textContent=(sf[oVal]||0).toFixed(2);
+      sfLbl.style.color='var(--amber-text)';
+    }
+  }
+  // Campo U: readOnly si interior
+  const uInp = el('u_'+sid);
+  if(uInp){ uInp.style.opacity = esInt?'0.4':'1'; uInp.readOnly = esInt; }
+  recalc();
+}
+function onTipoChangeH(sid){
+  recalc();
 }
 
 function onDimChange(sid){
@@ -595,63 +776,101 @@ function onMat(sid){
   recalc();
 }
 function recalc(){
-  const largo=+el('largo').value||5,ancho=+el('ancho').value||4,alto=+el('alto').value||2.7;
-  // Área de planta: usar el valor real del campo techo si existe, sino largo*ancho
-  const areaTecho = +el('area_techo')?.value || largo*ancho;
-  const vol = areaTecho * alto;
-  const area = areaTecho;
-  const avid=+el('avid').value,Uvid=+el('uvid').value,fs=+el('fs').value;
-  const rad=+el('rad').value,reno=+el('reno').value,equip=+el('equip').value;
+  const largo=+el('largo').value||5, ancho=+el('ancho').value||4, alto=+el('alto').value||2.7;
+  const vol  = largo*ancho*alto;
+  const area = largo*ancho;
+  const rad=+el('rad').value, equip=+el('equip').value;
   const pers=+el('pers').value;
-  const TbsInv=+el('inv-bs').value,TbhInv=+el('inv-bh').value,hrInv=+el('inv-hr').value;
-  const TbsVer=+el('ver-bs').value,TbhVer=+el('ver-bh').value,hrVer=+el('ver-hr').value;
-  const TbsInt=+el('int-bs').value,TbhInt=+el('int-bh').value,hrInt=+el('int-hr').value;
+  const sf=solarFactors();
+
+  // Actividad: "Qsens,Qlat" por persona (W)
+  const actVal=(el('actividad')?.value||'65,55').split(',');
+  const Qps_unit=+actVal[0], Qpl_unit=+actVal[1];
+
+  // Ventilación: l/s por persona o ren/h
+  const ventModo=el('vent-modo')?.value||'lsp';
+  const ventVal=+el('reno').value||10;
+  let caudal_m3s; // m³/s total
+  if(ventModo==='lsp'){
+    caudal_m3s=ventVal*pers/1000;  // l/s × personas → m³/s
+    const reno_equiv=caudal_m3s*3600/vol;
+    const lb=el('reno-label');
+    if(lb) lb.textContent='l/s·pers → '+reno_equiv.toFixed(2)+' ren/h';
+  } else {
+    caudal_m3s=ventVal*vol/3600;   // ren/h → m³/s
+    const lb=el('reno-label');
+    if(lb) lb.textContent='ren/h → '+(caudal_m3s*1000).toFixed(0)+' l/s total';
+  }
+
+  const TbsInv=+el('inv-bs').value, TbhInv=+el('inv-bh').value, hrInv=+el('inv-hr').value;
+  const TbsVer=+el('ver-bs').value, TbhVer=+el('ver-bh').value, hrVer=+el('ver-hr').value;
+  const TbsInt=+el('int-bs').value, TbhInt=+el('int-bh').value, hrInt=+el('int-hr').value;
   psyInv=computePsy(TbsInv,TbhInv,hrInv,segMode.inv);
   psyVer=computePsy(TbsVer,TbhVer,hrVer,segMode.ver);
   const psyInt=computePsy(TbsInt,TbhInt,hrInt,segMode.int);
   window._psyInt=psyInt;
   const Tc=psyInt.Tbs;
-  const dTcal=Tc-psyInv.Tbs,dTref=psyVer.Tbs-Tc;
-  const rho=1.205,cp=1005,hfg=2501000;
-  const Qvsc=reno*vol/3600*rho*cp*dTcal;
-  const Qvsr=reno*vol/3600*rho*cp*dTref;
+  const dTcal=Tc-psyInv.Tbs, dTref=psyVer.Tbs-Tc;
+  const rho=1.205, cp=1005, hfg=2501000;
+
+  // Ventilación sensible y latente
+  const Qvsc=caudal_m3s*rho*cp*dTcal;
+  const Qvsr=caudal_m3s*rho*cp*dTref;
   const dWc=Math.max(0,(psyInt.W-psyInv.W)/1000);
   const dWr=Math.max(0,(psyVer.W-psyInt.W)/1000);
-  const Qvlc=reno*vol/3600*rho*hfg*dWc;
-  const Qvlr=reno*vol/3600*rho*hfg*dWr;
-  let Qsc=0,Qsr=0;const detCal=[],detRef=[];
-  const sf=solarFactors();
-  // Muros
+  const Qvlc=caudal_m3s*rho*hfg*dWc;
+  const Qvlr=caudal_m3s*rho*hfg*dWr;
+
+  // Superficies — Q = U × A × dT, respetando tipo interior/exterior
+  let Qsc=0, Qsr=0;
+  const detCal=[], detRef=[];
+  let Qvc=0, Qvr=0, Qsol=0; // acumulados de ventanas por muro
+
+  const Uvid=+el('uvid').value, fs=+el('fs').value;
+
   SURFS_MUROS.forEach(s=>{
-    const a=+el('area_'+s.id).value||0, u=+el('u_'+s.id).value||0;
+    const tipoEl=el('tipo_'+s.id);
+    const esInt = tipoEl && tipoEl.value==='int';
+    const a=+el('area_'+s.id).value||0;
+    const u= esInt ? 0 : (+el('u_'+s.id).value||0);
     const orient=wallOrient[s.id]||'N';
-    const solFac=sf[orient]||0;
-    const qc=u*a*dTcal;
-    // En verano: conducción + ganancia solar por absorción en muro (α≈0.6 para colores medios)
-    const qr=u*a*dTref + rad*0.6*solFac*a*u/25; // CLTD simplificado
-    Qsc+=qc; Qsr+=qr;
-    detCal.push({l:s.l+' ('+orient+')',q:qc});
-    detRef.push({l:s.l+' ('+orient+')',q:qr});
-  });
-  // Techo y piso
-  SURFS_HORIZ.forEach(s=>{
-    const a=+el('area_'+s.id).value||0, u=+el('u_'+s.id).value||0;
     const qc=u*a*dTcal, qr=u*a*dTref;
     Qsc+=qc; Qsr+=qr;
-    detCal.push({l:s.l,q:qc});
-    detRef.push({l:s.l,q:qr});
+    detCal.push({l:s.l+(esInt?' (int)':' ('+orient+')'), q:qc});
+    detRef.push({l:s.l+(esInt?' (int)':' ('+orient+')'), q:qr});
+    // Ventanas de este muro (solo exterior)
+    if(!esInt){
+      const vidA=+el('vid_'+s.id)?.value||0;
+      if(vidA>0){
+        const sfact=sf[orient]||0;
+        Qvc += Uvid*vidA*dTcal;
+        Qvr += Uvid*vidA*dTref;
+        Qsol+= rad*sfact*fs*vidA;
+      }
+    }
   });
-  const Qvc=Uvid*avid*dTcal,Qvr=Uvid*avid*dTref;
-  const Qsol=rad*solarFactorVentanas()*fs*avid;
-  const Qps=pers*65,Qpl=pers*55;
+  SURFS_HORIZ.forEach(s=>{
+    const tipoEl=el('tipo_'+s.id);
+    const esInt = tipoEl && tipoEl.value==='int';
+    const a=+el('area_'+s.id).value||0;
+    const u= esInt ? 0 : (+el('u_'+s.id).value||0);
+    const qc=u*a*dTcal, qr=u*a*dTref;
+    Qsc+=qc; Qsr+=qr;
+    detCal.push({l:s.l+(esInt?' (int)':''), q:qc});
+    detRef.push({l:s.l+(esInt?' (int)':''), q:qr});
+  });
+  // Cargas internas
+  const Qps=pers*Qps_unit, Qpl=pers*Qpl_unit;
   const Qgi=Qps+equip;
-  const Qcal_s=Math.max(0,Qsc+Qvc+Qvsc-Qgi);
-  const Qcal_l=Math.max(0,Qvlc);
+
+  // Totales
+  const Qcal_s=Math.max(0, Qsc+Qvc+Qvsc - Qgi);
+  const Qcal_l=Math.max(0, Qvlc);
   const Qcal_t=Qcal_s+Qcal_l;
   const Qref_s=Qsr+Qvr+Qvsr+Qsol+Qps+equip;
-  const Qref_l=Math.max(0,Qvlr+Qpl);
+  const Qref_l=Math.max(0, Qvlr+Qpl);
   const Qref_t=Qref_s+Qref_l;
-  cData={Qcal_s,Qcal_l,Qcal_t,detCal,Qvc,Qvsc,Qvlc,Qgi,area,vol,reno};
+  cData={Qcal_s,Qcal_l,Qcal_t,detCal,Qvc,Qvsc,Qvlc,Qgi,area,vol,caudal_m3s};
   rData={Qref_s,Qref_l,Qref_t,detRef,Qvr,Qvsr,Qvlr,Qsol,Qps,Qpl,equip,area};
   el('qcal-w').textContent=fmt(Qcal_s);
   el('qcal-lat').textContent=fmt(Qcal_l);
@@ -684,7 +903,7 @@ function renderPsy(){
   el('psy-inv-cards').innerHTML=pCard('Bulbo seco',i.Tbs.toFixed(1),'°C')+pCard('Bulbo húmedo',i.Tbh.toFixed(1),'°C')+pCard('HR',Math.round(i.hr),'%')+pCard('Hum. específica',i.W.toFixed(1),'g/kg')+pCard('Entalpía',i.h.toFixed(1),'kJ/kg')+pCard('Punto de rocío',i.Tdp.toFixed(1),'°C')+pCard('Densidad',i.rho.toFixed(3),'kg/m³');
   const v=psyVer;
   el('psy-ver-cards').innerHTML=pCard('Bulbo seco',v.Tbs.toFixed(1),'°C')+pCard('Bulbo húmedo',v.Tbh.toFixed(1),'°C')+pCard('HR',Math.round(v.hr),'%')+pCard('Hum. específica',v.W.toFixed(1),'g/kg')+pCard('Entalpía',v.h.toFixed(1),'kJ/kg')+pCard('Punto de rocío',v.Tdp.toFixed(1),'°C')+pCard('Densidad',v.rho.toFixed(3),'kg/m³');
-  const ql=cData.Qvlc||0,qr=rData.Qref_l||0,caudal=(cData.reno||0)*(cData.vol||0)/3600;
+  const ql=cData.Qvlc||0,qr=rData.Qref_l||0,caudal=cData.caudal_m3s||0;
   el('lat-cards').innerHTML=`<div class="metric"><div class="lbl">Lat. calefacción</div><div class="val" style="color:var(--amber-text)">${fmt(ql)}</div></div><div class="metric"><div class="lbl">Lat. refrigeración</div><div class="val" style="color:var(--blue-text)">${fmt(qr)}</div></div><div class="metric"><div class="lbl">Caudal ventilación</div><div class="val">${caudal.toFixed(3)} m³/s</div></div>`;
   el('lat-nota').textContent='La carga latente es la energía para condensar o evaporar la humedad del aire de ventilación. En climas húmedos puede representar el 20–35% de la carga total de refrigeración.';
 }
@@ -750,7 +969,49 @@ function selectEquip(mode,eid,click){
   }
 }
 function showTab(t){['datos','psicro','calef','refrig'].forEach(x=>el('tab-'+x).style.display=x===t?'':'none');document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['datos','psicro','calef','refrig'][i]===t));if(t!=='datos')recalc()}
-buildSurfs();setUnit('W');updateDiagram();recalc();
+
+// ── USUARIOS AUTORIZADOS ───────────────────────────────────
+// Para agregar usuarios: { user:'nombre', pass:'clave', nombre:'Nombre completo' }
+const USUARIOS = [
+  { user:'admin',    pass:'termico2024',  nombre:'Administrador' },
+  { user:'usuario1', pass:'clave123',     nombre:'Usuario 1'     },
+  { user:'usuario2', pass:'clave456',     nombre:'Usuario 2'     },
+];
+// ──────────────────────────────────────────────────────────
+
+function doLogin(){
+  const u = document.getElementById('login-user').value.trim().toLowerCase();
+  const p = document.getElementById('login-pass').value;
+  const found = USUARIOS.find(x => x.user===u && x.pass===p);
+  if(found){
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('app-content').style.display='block';
+    document.getElementById('header-user').textContent = found.nombre;
+    document.getElementById('login-error').textContent = '';
+    // Inicializar app
+    buildSurfs(); setUnit('W'); updateDiagram(); recalc();
+  } else {
+    const err = document.getElementById('login-error');
+    err.textContent = 'Usuario o contraseña incorrectos';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    // Animación shake
+    const box = document.querySelector('.login-box');
+    box.style.transform='translateX(-6px)';
+    setTimeout(()=>box.style.transform='translateX(6px)',80);
+    setTimeout(()=>box.style.transform='translateX(0)',160);
+  }
+}
+function doLogout(){
+  document.getElementById('app-content').style.display='none';
+  document.getElementById('login-overlay').style.display='flex';
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+  document.getElementById('login-user').focus();
+}
+
+// App init triggered by login
 </script>
+</div><!-- /app-content -->
 </body>
 </html>
