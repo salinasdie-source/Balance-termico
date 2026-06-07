@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balance Térmico — Calefacción y Refrigeración</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f0;
+    --bg3: #eeede8;
+    --text: #1a1a18;
+    --text2: #6b6b66;
+    --text3: #9a9a94;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --radius: 10px;
+    --radius-sm: 7px;
+    --amber: #EF9F27;
+    --amber-bg: #FAEEDA;
+    --amber-text: #854F0B;
+    --blue: #378ADD;
+    --blue-bg: #E6F1FB;
+    --blue-text: #185FA5;
+    --green: #1D9E75;
+    --red: #D85A30;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --bg2: #252523;
+      --bg3: #2e2e2b;
+      --text: #f0efea;
+      --text2: #a0a09a;
+      --text3: #6a6a64;
+      --border: rgba(255,255,255,0.12);
+      --border2: rgba(255,255,255,0.22);
+      --amber-bg: #3a2a08;
+      --amber-text: #FAC775;
+      --blue-bg: #051c35;
+      --blue-text: #85B7EB;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg3); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; }
+  .header { background: var(--bg); border-bottom: 0.5px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 10; }
+  .header h1 { font-size: 16px; font-weight: 500; }
+  .header .sub { font-size: 12px; color: var(--text2); }
+  .container { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .tab-row { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { font-size: 13px; padding: 8px 16px; border-radius: var(--radius-sm); border: 0.5px solid var(--border); cursor: pointer; background: transparent; color: var(--text2); transition: all .15s; }
+  .tab:hover { background: var(--bg2); color: var(--text); }
+  .tab.active { background: var(--bg); color: var(--text); font-weight: 500; border-color: var(--border2); }
+  .sec { font-size: 11px; font-weight: 500; color: var(--text2); letter-spacing: .06em; text-transform: uppercase; margin: 0 0 8px; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  @media (max-width: 600px) { .g3 { grid-template-columns: 1fr 1fr; } .g4 { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 420px) { .g2,.g3,.g4 { grid-template-columns: 1fr; } }
+  .fld { display: flex; flex-direction: column; gap: 4px; }
+  .fld label { font-size: 12px; color: var(--text2); }
+  input[type=number], select {
+    background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); font-size: 13px; padding: 7px 10px; width: 100%;
+    outline: none; transition: border-color .15s;
+  }
+  input[type=number]:focus, select:focus { border-color: var(--border2); }
+  .seg { display: flex; border-radius: var(--radius-sm); overflow: hidden; border: 0.5px solid var(--border2); margin-bottom: 10px; }
+  .seg-btn { flex: 1; padding: 7px 0; font-size: 12px; border: none; cursor: pointer; background: transparent; color: var(--text2); border-right: 0.5px solid var(--border); }
+  .seg-btn:last-child { border-right: none; }
+  .seg-btn.on { background: var(--bg); color: var(--text); font-weight: 500; }
+  .srow { display: grid; grid-template-columns: 1fr 90px 80px 80px; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .srow:last-child { border-bottom: none; }
+  .srow-hdr { display: grid; grid-template-columns: 1fr 90px 80px 80px; gap: 8px; padding-bottom: 6px; font-size: 11px; color: var(--text2); }
+  .metric { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .metric .lbl { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .metric .val { font-size: 20px; font-weight: 500; }
+  .psy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .psybox { background: var(--bg2); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .psybox .lbl { font-size: 11px; color: var(--text2); }
+  .psybox .val { font-size: 15px; font-weight: 500; }
+  .psybox .unit { font-size: 11px; color: var(--text2); }
+  .bar-wrap { height: 6px; border-radius: 4px; background: var(--border); margin: 5px 0; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+  .eq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  @media (max-width: 480px) { .eq-grid { grid-template-columns: 1fr; } }
+  .eq-card { border-radius: var(--radius-sm); border: 0.5px solid var(--border); padding: 12px 14px; background: var(--bg2); cursor: pointer; transition: all .15s; }
+  .eq-card:hover { border-color: var(--border2); }
+  .eq-card.sel-h { border-color: var(--amber); background: var(--amber-bg); }
+  .eq-card.sel-c { border-color: var(--blue); background: var(--blue-bg); }
+  .divider { height: 0.5px; background: var(--border); margin: 12px 0; }
+  .chart-wrap { position: relative; width: 100%; height: 200px; margin-top: 10px; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: var(--radius-sm); font-weight: 500; }
+  .note { font-size: 12px; color: var(--text2); line-height: 1.6; margin-top: 8px; }
+  .ti { font-size: 18px; vertical-align: -3px; }
+  .unit-btn {
+    padding: 7px 14px; font-size: 13px; border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border); cursor: pointer;
+    background: var(--bg2); color: var(--text2); transition: all .15s;
+  }
+  .unit-btn:hover { border-color: var(--border2); color: var(--text); }
+  .unit-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <i class="ti ti-temperature" style="font-size:22px;color:var(--amber)"></i>
+  <div>
+    <div class="header h1" style="font-size:16px;font-weight:500">Balance Térmico</div>
+    <div class="sub">Calefacción · Refrigeración · Psicrometría</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tab-row">
+    <button class="tab active" onclick="showTab('datos')"><i class="ti ti-settings"></i> Datos</button>
+    <button class="tab" onclick="showTab('psicro')"><i class="ti ti-chart-dots"></i> Psicrometría</button>
+    <button class="tab" onclick="showTab('calef')"><i class="ti ti-flame"></i> Calefacción</button>
+    <button class="tab" onclick="showTab('refrig')"><i class="ti ti-snowflake"></i> Refrigeración</button>
+  </div>
+
+  <!-- DATOS -->
+  <div id="tab-datos">
+    <p class="sec">Dimensiones del local</p>
+    <div class="card">
+      <div class="g3">
+        <div class="fld"><label>Largo (m)</label><input type="number" id="largo" value="5" step="0.1" min="1" oninput="buildSurfs();recalc()"></div>
+        <div class="fld"><label>Ancho (m)</label><input type="number" id="ancho" value="4" step="0.1" min="1" oninput="buildSurfs();recalc()"></div>
+        <div class="fld"><label>Alto (m)</label><input type="number" id="alto" value="2.7" step="0.1" min="1.8" oninput="buildSurfs();recalc()"></div>
+      </div>
+    </div>
+
+    <p class="sec">Unidades de capacidad térmica</p>
+    <div class="card">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Seleccioná la unidad que se usará en todos los resultados.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px" id="unit-btns">
+        <button class="unit-btn active" onclick="setUnit('W')"      >W</button>
+        <button class="unit-btn"        onclick="setUnit('kW')"     >kW</button>
+        <button class="unit-btn"        onclick="setUnit('kcal_h')" >kcal/h</button>
+        <button class="unit-btn"        onclick="setUnit('BTU_h')"  >BTU/h</button>
+        <button class="unit-btn"        onclick="setUnit('fg_h')"   >Frigorías/h</button>
+        <button class="unit-btn"        onclick="setUnit('TR')"     >TR</button>
+        <button class="unit-btn"        onclick="setUnit('HP')"     >HP</button>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text2)" id="unit-equiv"></div>
+    </div>
+
+    <p class="sec">Hemisferio</p>
+    <div class="card">
+      <div class="seg" id="seg-hemisferio" style="max-width:260px;margin-bottom:8px">
+        <button class="seg-btn on" onclick="setHemisferio('sur')">🌎 Hemisferio Sur</button>
+        <button class="seg-btn"    onclick="setHemisferio('norte')">🌍 Hemisferio Norte</button>
+      </div>
+      <p style="font-size:12px;color:var(--text2)" id="hemisferio-nota">Hemisferio Sur: el sol calienta principalmente por el Norte.</p>
+    </div>
+
+
+    <div class="card">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Condiciones que se desean mantener dentro del local.</p>
+      <div class="seg" id="seg-int">
+        <button class="seg-btn on" onclick="setSeg('int','bs')">Bulbo seco</button>
+        <button class="seg-btn" onclick="setSeg('int','bh')">Bulbo húmedo</button>
+        <button class="seg-btn" onclick="setSeg('int','hr')">Humedad relativa</button>
+      </div>
+      <div class="g3" style="margin-bottom:10px">
+        <div class="fld"><label>Temp. BS confort (°C)</label><input type="number" id="int-bs" value="21" step="0.5" oninput="syncPsy('int','bs')"></div>
+        <div class="fld"><label>Bulbo húmedo (°C)</label><input type="number" id="int-bh" value="14.5" step="0.5" oninput="syncPsy('int','bh')"></div>
+        <div class="fld"><label>HR interior (%)</label><input type="number" id="int-hr" value="50" step="1" min="0" max="100" oninput="syncPsy('int','hr')"></div>
+      </div>
+      <div class="g2">
+        <div class="fld"><label>Ocupantes</label><input type="number" id="pers" value="2" min="0" oninput="recalc()"></div>
+        <div class="fld"><label>Equipos eléctricos (W)</label><input type="number" id="equip" value="200" step="10" oninput="recalc()"></div>
+      </div>
+    </div>
+
+    <p class="sec">Condiciones exteriores — invierno</p>
+    <div class="card">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Condiciones del aire exterior en el día de diseño más frío.</p>
+      <div class="seg" id="seg-inv">
+        <button class="seg-btn on" onclick="setSeg('inv','bs')">Bulbo seco</button>
+        <button class="seg-btn" onclick="setSeg('inv','bh')">Bulbo húmedo</button>
+        <button class="seg-btn" onclick="setSeg('inv','hr')">Humedad relativa</button>
+      </div>
+      <div class="g3">
+        <div class="fld"><label>Temp. BS exterior (°C)</label><input type="number" id="inv-bs" value="2" step="0.5" oninput="syncPsy('inv','bs')"></div>
+        <div class="fld"><label>Bulbo húmedo (°C)</label><input type="number" id="inv-bh" value="0.4" step="0.5" oninput="syncPsy('inv','bh')"></div>
+        <div class="fld"><label>HR exterior (%)</label><input type="number" id="inv-hr" value="70" step="1" min="0" max="100" oninput="syncPsy('inv','hr')"></div>
+      </div>
+    </div>
+
+    <p class="sec">Condiciones exteriores — verano</p>
+    <div class="card">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Condiciones del aire exterior en el día de diseño más caluroso.</p>
+      <div class="seg" id="seg-ver">
+        <button class="seg-btn on" onclick="setSeg('ver','bs')">Bulbo seco</button>
+        <button class="seg-btn" onclick="setSeg('ver','bh')">Bulbo húmedo</button>
+        <button class="seg-btn" onclick="setSeg('ver','hr')">Humedad relativa</button>
+      </div>
+      <div class="g3">
+        <div class="fld"><label>Temp. BS exterior (°C)</label><input type="number" id="ver-bs" value="35" step="0.5" oninput="syncPsy('ver','bs')"></div>
+        <div class="fld"><label>Bulbo húmedo (°C)</label><input type="number" id="ver-bh" value="24" step="0.5" oninput="syncPsy('ver','bh')"></div>
+        <div class="fld"><label>HR exterior (%)</label><input type="number" id="ver-hr" value="55" step="1" min="0" max="100" oninput="syncPsy('ver','hr')"></div>
+      </div>
+    </div>
+
+    <p class="sec">Muros — medidas, materiales y orientación</p>
+    <div class="card" style="overflow-x:auto">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+        El área neta se calcula automáticamente (ancho × alto). Descontá manualmente el área de ventanas si corresponde.
+      </p>
+      <table id="surfs" style="width:100%;border-collapse:collapse;min-width:580px"></table>
+    </div>
+
+    <p class="sec">Techo y piso</p>
+    <div class="card" style="overflow-x:auto">
+      <table id="surfs-horiz" style="width:100%;border-collapse:collapse;min-width:400px"></table>
+    </div>
+
+    <p class="sec">Ventanas y ventilación</p>
+    <div class="card">
+      <div class="g3" style="margin-bottom:10px">
+        <div class="fld"><label>Área vidrios (m²)</label><input type="number" id="avid" value="4" step="0.1" min="0" oninput="recalc()"></div>
+        <div class="fld"><label>Tipo de vidrio</label>
+          <select id="uvid" onchange="recalc()">
+            <option value="5.8">Simple (U=5.8)</option>
+            <option value="2.8" selected>DVH (U=2.8)</option>
+            <option value="1.1">Triple (U=1.1)</option>
+          </select>
+        </div>
+        <div class="fld"><label>Factor solar</label><input type="number" id="fs" value="0.6" step="0.05" min="0" max="1" oninput="recalc()"></div>
+      </div>
+      <div class="g3">
+        <div class="fld"><label>Radiación solar (W/m²)</label><input type="number" id="rad" value="600" step="10" oninput="recalc()"></div>
+        <div class="fld"><label>Orientación ventanas</label>
+          <select id="orient-ventanas" onchange="recalc()" style="font-size:13px">
+            <option value="N" selected>Norte</option>
+            <option value="S">Sur</option>
+            <option value="E">Este</option>
+            <option value="O">Oeste</option>
+          </select>
+        </div>
+        <div class="fld"><label>Ventilación (ren/h)</label><input type="number" id="reno" value="0.5" step="0.1" min="0" oninput="recalc()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PSICROMETRÍA -->
+  <div id="tab-psicro" style="display:none">
+    <p class="sec">Estado psicrométrico — interior (confort)</p>
+    <div class="card"><div class="psy-grid" id="psy-int-cards"></div></div>
+    <p class="sec">Estado psicrométrico — exterior invierno</p>
+    <div class="card"><div class="psy-grid" id="psy-inv-cards"></div></div>
+    <p class="sec">Estado psicrométrico — exterior verano</p>
+    <div class="card"><div class="psy-grid" id="psy-ver-cards"></div></div>
+    <p class="sec">Cargas de ventilación</p>
+    <div class="card">
+      <div class="g3" id="lat-cards"></div>
+      <div class="divider"></div>
+      <p class="note" id="lat-nota"></p>
+    </div>
+  </div>
+
+  <!-- CALEFACCIÓN -->
+  <div id="tab-calef" style="display:none">
+    <div class="g4" style="margin-bottom:12px">
+      <div class="metric"><div class="lbl">Carga sensible</div><div class="val" style="color:var(--amber-text)" id="qcal-w">—</div></div>
+      <div class="metric"><div class="lbl">Carga latente</div><div class="val" id="qcal-lat">—</div></div>
+      <div class="metric"><div class="lbl">Total calefacción</div><div class="val" id="qcal-tot">—</div></div>
+      <div class="metric"><div class="lbl">BTU/h</div><div class="val" id="qcal-btu">—</div></div>
+    </div>
+    <div class="card" id="desglose-cal"></div>
+    <p class="sec" style="margin-top:4px">Selección de equipo</p>
+    <div class="eq-grid" id="equipos-cal"></div>
+    <div class="card" id="resultado-cal" style="display:none">
+      <p class="sec">Resultado del equipo</p>
+      <div class="g3" id="res-cal-grid"></div>
+      <div class="divider"></div>
+      <div class="chart-wrap"><canvas id="chartCal" role="img" aria-label="Pérdidas calefacción">Pérdidas por componente.</canvas></div>
+    </div>
+  </div>
+
+  <!-- REFRIGERACIÓN -->
+  <div id="tab-refrig" style="display:none">
+    <div class="g4" style="margin-bottom:12px">
+      <div class="metric"><div class="lbl">Carga sensible</div><div class="val" style="color:var(--blue-text)" id="qref-w">—</div></div>
+      <div class="metric"><div class="lbl">Carga latente</div><div class="val" id="qref-lat">—</div></div>
+      <div class="metric"><div class="lbl">Total refrigeración</div><div class="val" id="qref-tot">—</div></div>
+      <div class="metric"><div class="lbl">W/m²</div><div class="val" id="qref-wm2">—</div></div>
+    </div>
+    <div class="card" id="desglose-ref"></div>
+    <p class="sec" style="margin-top:4px">Selección de equipo</p>
+    <div class="eq-grid" id="equipos-ref"></div>
+    <div class="card" id="resultado-ref" style="display:none">
+      <p class="sec">Resultado del equipo</p>
+      <div class="g3" id="res-ref-grid"></div>
+      <div class="divider"></div>
+      <div class="chart-wrap"><canvas id="chartRef" role="img" aria-label="Ganancias refrigeración">Ganancias por componente.</canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const MATS={ladrillo:{l:'Ladrillo macizo',u:1.82},bloque:{l:'Bloque hueco',u:1.05},aislada:{l:'Pared aislada',u:0.40},losa:{l:'Losa hormigón',u:2.8},losa_ais:{l:'Losa aislada',u:0.45},contrapiso:{l:'Contrapiso',u:1.4},piso_fl:{l:'Piso flotante',u:0.9}};
+// SURFS legacy removed
+const EQUIP_CAL=[{id:'split',l:'Split inverter',icon:'ti-wind',cop:3.8,nota:'Más eficiente'},{id:'rad',l:'Radiador eléctrico',icon:'ti-flame',cop:1.0,nota:'Sin instalación'},{id:'gas',l:'Tiro balanceado',icon:'ti-building',cop:0.92,nota:'Gas, apto interior'},{id:'lena',l:'Estufa a leña',icon:'ti-campfire',cop:0.75,nota:'Bajo costo combustible'}];
+const EQUIP_REF=[{id:'split',l:'Split frío/calor',icon:'ti-wind',eer:3.2,nota:'Recomendado'},{id:'vent',l:'AA de ventana',icon:'ti-device-tv',eer:2.5,nota:'Fácil instalación'},{id:'port',l:'Equipo portátil',icon:'ti-device-mobile',eer:2.1,nota:'Sin obra'},{id:'evap',l:'Enfriador evap.',icon:'ti-droplet',eer:8.0,nota:'Solo climas secos'}];
+const segMode={inv:'bs',ver:'bs',int:'bs'};
+let selCal=null,selRef=null,chartCal=null,chartRef=null,cData={},rData={},psyInv={},psyVer={};
+function el(id){return document.getElementById(id)}
+// --- Sistema de unidades ---
+const UNITS = {
+  W:      { label: 'W',           factor: 1,           decimals: 0 },
+  kW:     { label: 'kW',          factor: 1/1000,      decimals: 2 },
+  kcal_h: { label: 'kcal/h',      factor: 0.859845,    decimals: 0 },
+  BTU_h:  { label: 'BTU/h',       factor: 3.41214,     decimals: 0 },
+  fg_h:   { label: 'Frigorías/h', factor: 0.859845,    decimals: 0 },
+  TR:     { label: 'TR',          factor: 1/3516.85,   decimals: 3 },
+  HP:     { label: 'HP',          factor: 1/745.7,     decimals: 3 },
+};
+let currentUnit = 'W';
+
+function setUnit(u){
+  currentUnit = u;
+  document.querySelectorAll('.unit-btn').forEach(b =>
+    b.classList.toggle('active', b.textContent.trim() === UNITS[u].label || b.onclick.toString().includes("'"+u+"'"))
+  );
+  // equivalencias informativas
+  const f = UNITS[u].factor;
+  const equivs = Object.entries(UNITS)
+    .filter(([k])=>k!==u)
+    .map(([k,v])=>`1 ${UNITS[u].label} = ${(v.factor/f).toFixed(4)} ${v.label}`)
+    .join('  ·  ');
+  const eq = document.getElementById('unit-equiv');
+  if(eq) eq.textContent = equivs;
+  recalc();
+}
+
+function fmt(W){
+  const u = UNITS[currentUnit];
+  const val = W * u.factor;
+  return val.toFixed(u.decimals) + ' ' + u.label;
+}
+
+function fmtVal(W){
+  const u = UNITS[currentUnit];
+  return (W * u.factor).toFixed(u.decimals);
+}
+
+function unitLabel(){ return UNITS[currentUnit].label; }
+
+
+const P_atm = 101.325; // kPa
+function psat(T){ return 0.61078*Math.exp(17.27*T/(T+237.3)) } // kPa
+function eFromBsBh(Tbs,Tbh){ return psat(Tbh) - 6.62e-4*P_atm*(Tbs-Tbh) }
+function WfromE(e){ return 0.622*Math.max(0,e)/(P_atm-Math.max(0,e)) }
+function hrFromE(e,Tbs){ return Math.max(0,Math.min(100, e/psat(Tbs)*100)) }
+function dewPointFromE(e){
+  if(e<=0) return -999;
+  const a=17.27,b=237.3;
+  return b*Math.log(e/0.61078)/(a-Math.log(e/0.61078));
+}
+// BS + HR -> BH (bisección, estable y preciso)
+function TbhFromBsHr(Tbs,hr){
+  const e_target = hr/100*psat(Tbs);
+  const dp = dewPointFromE(e_target);
+  let lo=dp, hi=Tbs;
+  for(let i=0;i<100;i++){
+    const mid=(lo+hi)/2;
+    const e_calc=eFromBsBh(Tbs,mid);
+    if(Math.abs(e_calc-e_target)<1e-9) return mid;
+    if(e_calc>e_target) hi=mid; else lo=mid;
+  }
+  return (lo+hi)/2;
+}
+// BS + BH -> HR y W
+function psyFromBsBh(Tbs,Tbh){
+  Tbh=Math.min(Tbh,Tbs);
+  const e=Math.max(0,eFromBsBh(Tbs,Tbh));
+  return { hr:hrFromE(e,Tbs), W:WfromE(e) };
+}
+function enthalpyKJ(Tbs,W){ return 1.006*Tbs+W*(2501+1.86*Tbs) }
+function dewPoint(W){
+  if(W<=0) return -999;
+  const e=W*P_atm/(0.622+W);
+  return dewPointFromE(e);
+}
+function computePsy(Tbs,Tbh,hr,mode){
+  let W,hrOut,TbhOut;
+  if(mode==='bh'){
+    TbhOut=Math.min(+Tbh,Tbs);
+    const r=psyFromBsBh(Tbs,TbhOut);
+    hrOut=r.hr; W=r.W;
+  } else {
+    hrOut=Math.max(0,Math.min(100,+hr));
+    const e=hrOut/100*psat(Tbs);
+    W=WfromE(e);
+    TbhOut=TbhFromBsHr(Tbs,hrOut);
+  }
+  const h=enthalpyKJ(Tbs,W);
+  const Tdp=dewPoint(W);
+  const rho=101325/(287.058*(Tbs+273.15)*(1+1.608*W));
+  return{Tbs,Tbh:TbhOut,hr:hrOut,W:W*1000,h,Tdp,rho};
+}
+function syncPsy(season,changed){
+  const Tbs=+el(season+'-bs').value;
+  const Tbh=+el(season+'-bh').value;
+  const hr =+el(season+'-hr').value;
+  if(changed==='bh'){
+    const Tbh_c=Math.min(Tbh,Tbs);
+    el(season+'-bh').value=Tbh_c.toFixed(1);
+    const r=psyFromBsBh(Tbs,Tbh_c);
+    el(season+'-hr').value=Math.round(r.hr);
+  } else if(changed==='hr'){
+    const hr_c=Math.max(0,Math.min(100,hr));
+    el(season+'-hr').value=hr_c;
+    el(season+'-bh').value=TbhFromBsHr(Tbs,hr_c).toFixed(1);
+  } else {
+    // BS cambió — mantener el campo fijo según modo activo
+    if(segMode[season]==='bh'){
+      const Tbh_c=Math.min(Tbh,Tbs);
+      el(season+'-bh').value=Tbh_c.toFixed(1);
+      const r=psyFromBsBh(Tbs,Tbh_c);
+      el(season+'-hr').value=Math.round(r.hr);
+    } else {
+      const hr_c=Math.max(0,Math.min(100,hr));
+      el(season+'-bh').value=TbhFromBsHr(Tbs,hr_c).toFixed(1);
+    }
+  }
+  recalc();
+}
+// --- Orientación y hemisferio ---
+let hemisferio = 'sur';
+
+function solarFactors(){
+  if(hemisferio==='sur') return {N:1.00,S:0.30,E:0.60,O:0.55};
+  else                   return {N:0.30,S:1.00,E:0.60,O:0.55};
+}
+
+function solarFactorVentanas(){
+  const sf=solarFactors();
+  const orientEl=document.getElementById('orient-ventanas');
+  const orient=orientEl?orientEl.value:'N';
+  return sf[orient]||0.6;
+}
+
+function setHemisferio(h){
+  hemisferio = h;
+  document.querySelectorAll('#seg-hemisferio .seg-btn').forEach((b,i)=>{
+    b.classList.toggle('on', (i===0&&h==='sur')||(i===1&&h==='norte'));
+  });
+  const nota = document.getElementById('hemisferio-nota');
+  if(nota) nota.textContent = h==='sur'
+    ? 'Hemisferio Sur: el sol calienta principalmente por el Norte.'
+    : 'Hemisferio Norte: el sol calienta principalmente por el Sur.';
+  updateDiagram();
+  recalc();
+}
+
+function updateDiagram(){
+  const sf=solarFactors();
+  // Actualizar nota de hemisferio
+  const nota=document.getElementById('hemisferio-nota');
+  if(nota) nota.textContent = hemisferio==='sur'
+    ? 'Hemisferio Sur: el sol calienta principalmente por el Norte.'
+    : 'Hemisferio Norte: el sol calienta principalmente por el Sur.';
+  // Actualizar factor solar en cada tarjeta de muro
+  SURFS_MUROS.forEach(s=>{
+    const lbl=el('sf-label-'+s.id);
+    if(lbl){ const dir=wallOrient[s.id]||s.defOrient; lbl.textContent='Factor solar: '+sf[dir].toFixed(2); }
+  });
+}
+
+function setSeg(season,mode){segMode[season]=mode;const btns=el('seg-'+season).querySelectorAll('.seg-btn');btns.forEach((b,i)=>b.classList.toggle('on',['bs','bh','hr'][i]===mode));syncPsy(season,mode)}
+const SURFS_MUROS=[
+  {id:'mN', l:'Muro Norte', defOrient:'N', defW:'lng'},
+  {id:'mS', l:'Muro Sur',   defOrient:'S', defW:'lng'},
+  {id:'mE', l:'Muro Este',  defOrient:'E', defW:'ang'},
+  {id:'mO', l:'Muro Oeste', defOrient:'O', defW:'ang'},
+];
+const SURFS_HORIZ=[
+  {id:'techo', l:'Techo / Losa', def:'losa'},
+  {id:'piso',  l:'Piso',         def:'contrapiso'},
+];
+const wallOrient={mN:'N', mS:'S', mE:'E', mO:'O'};
+
+const TH='padding:7px 10px;font-size:11px;font-weight:500;color:var(--text2);text-align:left;white-space:nowrap;background:var(--bg2);border-bottom:1px solid var(--border)';
+const TD='padding:6px 8px;vertical-align:middle;border-bottom:0.5px solid var(--border)';
+const INP='font-size:12px;padding:5px 7px;background:var(--bg2);border:0.5px solid var(--border);border-radius:5px;color:var(--text);width:100%;box-sizing:border-box;outline:none';
+
+function matOpts(sel){
+  return Object.entries(MATS).map(([k,v])=>`<option value="${k}"${k===sel?' selected':''}>${v.l}</option>`).join('');
+}
+
+function buildSurfs(){
+  const lng=+el('largo').value||5, ang=+el('ancho').value||4, alto=+el('alto').value||2.7;
+  const defW={lng:lng.toFixed(1), ang:ang.toFixed(1)};
+  const sf=solarFactors();
+
+  // -- Tabla muros ----------------------------------
+  const surfsEl=el('surfs');
+  surfsEl.innerHTML=`
+    <thead><tr>
+      <th style="${TH}">Muro</th>
+      <th style="${TH}">Ancho&nbsp;(m)</th>
+      <th style="${TH}">Alto&nbsp;(m)</th>
+      <th style="${TH}">Área neta&nbsp;(m²)</th>
+      <th style="${TH}">Material</th>
+      <th style="${TH}">U&nbsp;(W/m²K)</th>
+      <th style="${TH}">Orientación</th>
+      <th style="${TH}">Fs&nbsp;solar</th>
+    </tr></thead>
+    <tbody id="surfs-body"></tbody>`;
+
+  const tb=el('surfs-body');
+  SURFS_MUROS.forEach(s=>{
+    const wDef_val = defW[s.defW];
+    // Solo preservar si el usuario editó manualmente (marcado con data-edited)
+    const wEl=el('w_'+s.id), hEl=el('h_'+s.id), aEl=el('area_'+s.id);
+    const wVal = (wEl && wEl.dataset.edited) ? wEl.value : wDef_val;
+    const hVal = (hEl && hEl.dataset.edited) ? hEl.value : alto.toFixed(1);
+    const aVal = (aEl && aEl.dataset.edited) ? aEl.value : (+wVal * +hVal).toFixed(2);
+    const mVal=el('mat_'+s.id)?el('mat_'+s.id).value:'ladrillo';
+    const uVal=el('u_'+s.id)?el('u_'+s.id).value:MATS['ladrillo'].u;
+    const oVal=wallOrient[s.id]||s.defOrient;
+    const fVal=(sf[oVal]||0).toFixed(2);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="${TD};font-weight:500;white-space:nowrap">${s.l}</td>
+      <td style="${TD}"><input type="number" id="w_${s.id}"    value="${wVal}" step="0.1"  min="0" oninput="this.dataset.edited=1;onDimChange('${s.id}')" style="${INP}"></td>
+      <td style="${TD}"><input type="number" id="h_${s.id}"    value="${hVal}" step="0.1"  min="0" oninput="this.dataset.edited=1;onDimChange('${s.id}')" style="${INP}"></td>
+      <td style="${TD}"><input type="number" id="area_${s.id}" value="${aVal}" step="0.01" min="0" oninput="this.dataset.edited=1;recalc()"               style="${INP}"></td>
+      <td style="${TD}"><select id="mat_${s.id}" onchange="onMat('${s.id}')" style="${INP}">${matOpts(mVal)}</select></td>
+      <td style="${TD}"><input type="number" id="u_${s.id}"    value="${uVal}" step="0.01" min="0" oninput="recalc()"               style="${INP}"></td>
+      <td style="${TD}">
+        <select id="orient_${s.id}" onchange="onOrientChange('${s.id}')" style="${INP}">
+          <option value="N"${oVal==='N'?' selected':''}>N — Norte</option>
+          <option value="S"${oVal==='S'?' selected':''}>S — Sur</option>
+          <option value="E"${oVal==='E'?' selected':''}>E — Este</option>
+          <option value="O"${oVal==='O'?' selected':''}>O — Oeste</option>
+        </select>
+      </td>
+      <td style="${TD};text-align:center;font-weight:600;color:var(--amber-text)" id="sf-label-${s.id}">${fVal}</td>`;
+    tb.appendChild(tr);
+  });
+
+  // -- Tabla techo/piso ------------------------------
+  const horizEl=el('surfs-horiz');
+  horizEl.innerHTML=`
+    <thead><tr>
+      <th style="${TH}">Superficie</th>
+      <th style="${TH}">Material</th>
+      <th style="${TH}">U&nbsp;(W/m²K)</th>
+      <th style="${TH}">Área&nbsp;(m²)</th>
+    </tr></thead>
+    <tbody id="surfs-horiz-body"></tbody>`;
+
+  const tb2=el('surfs-horiz-body');
+  const defA=(lng*ang).toFixed(1);
+  SURFS_HORIZ.forEach(s=>{
+    const prevA=el('area_'+s.id);
+    const aVal = (prevA && prevA.dataset.edited) ? prevA.value : defA;
+    const mVal=el('mat_'+s.id)?el('mat_'+s.id).value:s.def;
+    const uVal=el('u_'+s.id)?el('u_'+s.id).value:MATS[s.def].u;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="${TD};font-weight:500;white-space:nowrap">${s.l}</td>
+      <td style="${TD}"><select id="mat_${s.id}" onchange="onMat('${s.id}')" style="${INP}">${matOpts(mVal)}</select></td>
+      <td style="${TD}"><input type="number" id="u_${s.id}"    value="${uVal}" step="0.01" min="0" oninput="recalc()" style="${INP}"></td>
+      <td style="${TD}"><input type="number" id="area_${s.id}" value="${aVal}" step="0.01" min="0" oninput="this.dataset.edited=1;recalc()" style="${INP}"></td>`;
+    tb2.appendChild(tr);
+  });
+}
+
+function onDimChange(sid){
+  const w=+el('w_'+sid).value||0, h=+el('h_'+sid).value||0;
+  el('area_'+sid).value=(w*h).toFixed(2);
+  recalc();
+}
+function onOrientChange(sid){
+  wallOrient[sid]=el('orient_'+sid).value;
+  const sf=solarFactors();
+  const lbl=el('sf-label-'+sid);
+  if(lbl) lbl.textContent=sf[wallOrient[sid]].toFixed(2);
+  recalc();
+}
+function onMat(sid){
+  const m=el('mat_'+sid).value;
+  if(MATS[m]) el('u_'+sid).value=MATS[m].u;
+  recalc();
+}
+function recalc(){
+  const largo=+el('largo').value||5,ancho=+el('ancho').value||4,alto=+el('alto').value||2.7;
+  // Área de planta: usar el valor real del campo techo si existe, sino largo*ancho
+  const areaTecho = +el('area_techo')?.value || largo*ancho;
+  const vol = areaTecho * alto;
+  const area = areaTecho;
+  const avid=+el('avid').value,Uvid=+el('uvid').value,fs=+el('fs').value;
+  const rad=+el('rad').value,reno=+el('reno').value,equip=+el('equip').value;
+  const pers=+el('pers').value;
+  const TbsInv=+el('inv-bs').value,TbhInv=+el('inv-bh').value,hrInv=+el('inv-hr').value;
+  const TbsVer=+el('ver-bs').value,TbhVer=+el('ver-bh').value,hrVer=+el('ver-hr').value;
+  const TbsInt=+el('int-bs').value,TbhInt=+el('int-bh').value,hrInt=+el('int-hr').value;
+  psyInv=computePsy(TbsInv,TbhInv,hrInv,segMode.inv);
+  psyVer=computePsy(TbsVer,TbhVer,hrVer,segMode.ver);
+  const psyInt=computePsy(TbsInt,TbhInt,hrInt,segMode.int);
+  window._psyInt=psyInt;
+  const Tc=psyInt.Tbs;
+  const dTcal=Tc-psyInv.Tbs,dTref=psyVer.Tbs-Tc;
+  const rho=1.205,cp=1005,hfg=2501000;
+  const Qvsc=reno*vol/3600*rho*cp*dTcal;
+  const Qvsr=reno*vol/3600*rho*cp*dTref;
+  const dWc=Math.max(0,(psyInt.W-psyInv.W)/1000);
+  const dWr=Math.max(0,(psyVer.W-psyInt.W)/1000);
+  const Qvlc=reno*vol/3600*rho*hfg*dWc;
+  const Qvlr=reno*vol/3600*rho*hfg*dWr;
+  let Qsc=0,Qsr=0;const detCal=[],detRef=[];
+  const sf=solarFactors();
+  // Muros
+  SURFS_MUROS.forEach(s=>{
+    const a=+el('area_'+s.id).value||0, u=+el('u_'+s.id).value||0;
+    const orient=wallOrient[s.id]||'N';
+    const solFac=sf[orient]||0;
+    const qc=u*a*dTcal;
+    // En verano: conducción + ganancia solar por absorción en muro (α≈0.6 para colores medios)
+    const qr=u*a*dTref + rad*0.6*solFac*a*u/25; // CLTD simplificado
+    Qsc+=qc; Qsr+=qr;
+    detCal.push({l:s.l+' ('+orient+')',q:qc});
+    detRef.push({l:s.l+' ('+orient+')',q:qr});
+  });
+  // Techo y piso
+  SURFS_HORIZ.forEach(s=>{
+    const a=+el('area_'+s.id).value||0, u=+el('u_'+s.id).value||0;
+    const qc=u*a*dTcal, qr=u*a*dTref;
+    Qsc+=qc; Qsr+=qr;
+    detCal.push({l:s.l,q:qc});
+    detRef.push({l:s.l,q:qr});
+  });
+  const Qvc=Uvid*avid*dTcal,Qvr=Uvid*avid*dTref;
+  const Qsol=rad*solarFactorVentanas()*fs*avid;
+  const Qps=pers*65,Qpl=pers*55;
+  const Qgi=Qps+equip;
+  const Qcal_s=Math.max(0,Qsc+Qvc+Qvsc-Qgi);
+  const Qcal_l=Math.max(0,Qvlc);
+  const Qcal_t=Qcal_s+Qcal_l;
+  const Qref_s=Qsr+Qvr+Qvsr+Qsol+Qps+equip;
+  const Qref_l=Math.max(0,Qvlr+Qpl);
+  const Qref_t=Qref_s+Qref_l;
+  cData={Qcal_s,Qcal_l,Qcal_t,detCal,Qvc,Qvsc,Qvlc,Qgi,area,vol,reno};
+  rData={Qref_s,Qref_l,Qref_t,detRef,Qvr,Qvsr,Qvlr,Qsol,Qps,Qpl,equip,area};
+  el('qcal-w').textContent=fmt(Qcal_s);
+  el('qcal-lat').textContent=fmt(Qcal_l);
+  el('qcal-tot').textContent=fmt(Qcal_t);
+  el('qcal-btu').textContent=fmt(Qcal_t);
+  el('qref-w').textContent=fmt(Qref_s);
+  el('qref-lat').textContent=fmt(Qref_l);
+  el('qref-tot').textContent=fmt(Qref_t);
+  el('qref-wm2').textContent=fmtVal(Qref_t/area)+' '+unitLabel()+'/m²';
+  // actualizar labels de métricas con la unidad actual
+  const ul=unitLabel();
+  ['qcal-w','qcal-lat','qcal-tot'].forEach(id=>{const m=el(id).closest('.metric');if(m){const l=m.querySelector('.lbl');if(l&&!l.dataset.orig)l.dataset.orig=l.textContent;if(l)l.textContent=l.dataset.orig;}});
+  el('qcal-btu').closest('.metric').querySelector('.lbl').textContent='Total ('+ul+')';
+  el('qref-w').closest('.metric').querySelector('.lbl').textContent='Carga sensible';
+  el('qref-lat').closest('.metric').querySelector('.lbl').textContent='Carga latente';
+  el('qref-tot').closest('.metric').querySelector('.lbl').textContent='Total refrigeración';
+  el('qref-wm2').closest('.metric').querySelector('.lbl').textContent=ul+'/m²';
+  renderPsy();renderDesgloses();renderEquipos();
+  if(selCal)selectEquip('cal',selCal,false);
+  if(selRef)selectEquip('ref',selRef,false);
+}
+function pCard(lbl,val,unit){return`<div class="psybox"><div class="lbl">${lbl}</div><div class="val">${val} <span class="unit">${unit}</span></div></div>`}
+function renderPsy(){
+  const i=psyInv;
+  const showInt=document.getElementById('psy-int-cards');
+  if(showInt){
+    const pi=window._psyInt||psyInv;
+    el('psy-int-cards').innerHTML=pCard('Bulbo seco',pi.Tbs.toFixed(1),'°C')+pCard('Bulbo húmedo',pi.Tbh.toFixed(1),'°C')+pCard('HR',Math.round(pi.hr),'%')+pCard('Hum. específica',pi.W.toFixed(1),'g/kg')+pCard('Entalpía',pi.h.toFixed(1),'kJ/kg')+pCard('Punto de rocío',pi.Tdp.toFixed(1),'°C')+pCard('Densidad',pi.rho.toFixed(3),'kg/m³');
+  }
+  el('psy-inv-cards').innerHTML=pCard('Bulbo seco',i.Tbs.toFixed(1),'°C')+pCard('Bulbo húmedo',i.Tbh.toFixed(1),'°C')+pCard('HR',Math.round(i.hr),'%')+pCard('Hum. específica',i.W.toFixed(1),'g/kg')+pCard('Entalpía',i.h.toFixed(1),'kJ/kg')+pCard('Punto de rocío',i.Tdp.toFixed(1),'°C')+pCard('Densidad',i.rho.toFixed(3),'kg/m³');
+  const v=psyVer;
+  el('psy-ver-cards').innerHTML=pCard('Bulbo seco',v.Tbs.toFixed(1),'°C')+pCard('Bulbo húmedo',v.Tbh.toFixed(1),'°C')+pCard('HR',Math.round(v.hr),'%')+pCard('Hum. específica',v.W.toFixed(1),'g/kg')+pCard('Entalpía',v.h.toFixed(1),'kJ/kg')+pCard('Punto de rocío',v.Tdp.toFixed(1),'°C')+pCard('Densidad',v.rho.toFixed(3),'kg/m³');
+  const ql=cData.Qvlc||0,qr=rData.Qref_l||0,caudal=(cData.reno||0)*(cData.vol||0)/3600;
+  el('lat-cards').innerHTML=`<div class="metric"><div class="lbl">Lat. calefacción</div><div class="val" style="color:var(--amber-text)">${fmt(ql)}</div></div><div class="metric"><div class="lbl">Lat. refrigeración</div><div class="val" style="color:var(--blue-text)">${fmt(qr)}</div></div><div class="metric"><div class="lbl">Caudal ventilación</div><div class="val">${caudal.toFixed(3)} m³/s</div></div>`;
+  el('lat-nota').textContent='La carga latente es la energía para condensar o evaporar la humedad del aire de ventilación. En climas húmedos puede representar el 20–35% de la carga total de refrigeración.';
+}
+function bRow(lbl,q,tot,color){const pct=tot>0?Math.max(0,Math.min(100,q/tot*100)):0;return`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${lbl}</span><span style="color:var(--text2)">${fmt(q)} <span style="font-size:11px">${Math.round(pct)}%</span></span></div><div class="bar-wrap"><div class="bar-fill" style="width:${pct.toFixed(1)}%;background:${color}"></div></div></div>`}
+function renderDesgloses(){
+  const{detCal,Qvc,Qvsc,Qvlc,Qgi,Qcal_s,Qcal_l,Qcal_t}=cData;
+  const pt=detCal.reduce((a,c)=>a+c.q,0)+Qvc+Qvsc+Qvlc;
+  let h='<p class="sec" style="margin-bottom:8px">Pérdidas térmicas</p>';
+  detCal.forEach(d=>h+=bRow(d.l,d.q,pt,'#EF9F27'));
+  h+=bRow('Ventanas',Qvc,pt,'#EF9F27');
+  h+=bRow('Ventilación sensible',Qvsc,pt,'#EF9F27');
+  h+=bRow('Ventilación latente',Qvlc,pt,'#BA7517');
+  h+='<div class="divider"></div>';
+  h+=bRow('Ganancias internas (descuento)',Qgi,pt,'#1D9E75');
+  h+=`<p class="note">Carga neta: <strong>${fmt(Qcal_t)}</strong> — ${fmt(Qcal_s)} sensible + ${fmt(Qcal_l)} latente</p>`;
+  el('desglose-cal').innerHTML=h;
+  const{detRef,Qvr,Qvsr,Qvlr,Qsol,Qps,Qpl,equip,Qref_s,Qref_l,Qref_t}=rData;
+  const gt=Qref_t;
+  let r='<p class="sec" style="margin-bottom:8px">Ganancias de calor</p>';
+  detRef.forEach(d=>r+=bRow(d.l,d.q,gt,'#85B7EB'));
+  r+=bRow('Ventanas (conducción)',Qvr,gt,'#85B7EB');
+  r+=bRow('Ventilación sensible',Qvsr,gt,'#85B7EB');
+  r+=bRow('Radiación solar',Qsol,gt,'#D85A30');
+  r+=bRow('Personas sensible',Qps,gt,'#1D9E75');
+  r+=bRow('Personas latente',Qpl,gt,'#1D9E75');
+  r+=bRow('Equipos eléctricos',equip,gt,'#1D9E75');
+  r+=bRow('Ventilación latente',Math.max(0,Qvlr),gt,'#378ADD');
+  r+=`<p class="note">Total: <strong>${fmt(Qref_t)}</strong> — ${fmt(Qref_s)} sensible + ${fmt(Qref_l)} latente</p>`;
+  el('desglose-ref').innerHTML=r;
+}
+function renderEquipos(){
+  const{Qcal_t}=cData,{Qref_t}=rData;
+  let hc='';EQUIP_CAL.forEach(e=>{const pot=Qcal_t/e.cop;const sel=selCal===e.id;hc+=`<div class="eq-card ${sel?'sel-h':''}" onclick="selectEquip('cal','${e.id}',true)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><i class="ti ${e.icon}" style="font-size:18px;color:var(--text2)"></i><span style="font-size:13px;font-weight:500">${e.l}</span></div><div style="font-size:12px;color:var(--text2);margin-bottom:4px">${e.nota}</div><div style="font-size:13px">Potencia: <strong>${fmt(pot)}</strong></div><div style="font-size:11px;color:var(--text2)">COP ${e.cop}</div></div>`});
+  el('equipos-cal').innerHTML=hc;
+  let hr='';EQUIP_REF.forEach(e=>{const pot=Qref_t/e.eer;const sel=selRef===e.id;hr+=`<div class="eq-card ${sel?'sel-c':''}" onclick="selectEquip('ref','${e.id}',true)"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><i class="ti ${e.icon}" style="font-size:18px;color:var(--text2)"></i><span style="font-size:13px;font-weight:500">${e.l}</span></div><div style="font-size:12px;color:var(--text2);margin-bottom:4px">${e.nota}</div><div style="font-size:13px">Potencia eléctrica: <strong>${fmt(pot)}</strong></div><div style="font-size:11px;color:var(--text2)">EER ${e.eer}</div></div>`});
+  el('equipos-ref').innerHTML=hr;
+}
+function selectEquip(mode,eid,click){
+  if(mode==='cal'){
+    if(click)selCal=eid;
+    const e=EQUIP_CAL.find(x=>x.id===eid);if(!e)return;
+    const{Qcal_s,Qcal_l,Qcal_t,detCal,Qvc,Qvsc,Qvlc}=cData;
+    el('resultado-cal').style.display='';
+    el('res-cal-grid').innerHTML=`<div class="metric"><div class="lbl">Potencia eléctrica</div><div class="val" style="color:var(--amber-text)">${fmt(Qcal_t/e.cop)}</div></div><div class="metric"><div class="lbl">Carga total</div><div class="val">${fmt(Qcal_t)}</div></div><div class="metric"><div class="lbl">COP</div><div class="val">${e.cop}</div></div>`;
+    const mT=detCal.reduce((a,c)=>a+c.q,0);
+    const uf=UNITS[currentUnit].factor;
+    const chartVals=[mT,Qvc,Qvsc,Qvlc].map(v=>+(v*uf).toFixed(UNITS[currentUnit].decimals));
+    if(chartCal)chartCal.destroy();
+    chartCal=new Chart(el('chartCal'),{type:'bar',data:{labels:['Muros','Ventanas','Vent. sens.','Vent. lat.'],datasets:[{label:unitLabel(),data:chartVals,backgroundColor:'#EF9F27',borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:12},autoSkip:false}},y:{ticks:{font:{size:11}},title:{display:true,text:unitLabel(),font:{size:11}}}}}});
+    renderEquipos();
+  } else {
+    if(click)selRef=eid;
+    const e=EQUIP_REF.find(x=>x.id===eid);if(!e)return;
+    const{Qref_s,Qref_l,Qref_t,detRef,Qvr,Qvsr,Qsol,Qps,equip,Qvlr,Qpl}=rData;
+    el('resultado-ref').style.display='';
+    el('res-ref-grid').innerHTML=`<div class="metric"><div class="lbl">Potencia eléctrica</div><div class="val" style="color:var(--blue-text)">${fmt(Qref_t/e.eer)}</div></div><div class="metric"><div class="lbl">Carga total</div><div class="val">${fmt(Qref_t)}</div></div><div class="metric"><div class="lbl">EER</div><div class="val">${e.eer}</div></div>`;
+    const mT=detRef.reduce((a,c)=>a+c.q,0);
+    const uf2=UNITS[currentUnit].factor;
+    const chartValsR=[mT,Qvr,Qvsr,Qsol,Qps,equip,Qref_l].map(v=>+(v*uf2).toFixed(UNITS[currentUnit].decimals));
+    if(chartRef)chartRef.destroy();
+    chartRef=new Chart(el('chartRef'),{type:'bar',data:{labels:['Muros','Ventanas','Vent. sens.','Solar','Personas','Equipos','Lat. total'],datasets:[{label:unitLabel(),data:chartValsR,backgroundColor:['#85B7EB','#85B7EB','#85B7EB','#D85A30','#1D9E75','#1D9E75','#378ADD'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11},autoSkip:false,maxRotation:35}},y:{ticks:{font:{size:11}},title:{display:true,text:unitLabel(),font:{size:11}}}}}});
+    renderEquipos();
+  }
+}
+function showTab(t){['datos','psicro','calef','refrig'].forEach(x=>el('tab-'+x).style.display=x===t?'':'none');document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['datos','psicro','calef','refrig'][i]===t));if(t!=='datos')recalc()}
+buildSurfs();setUnit('W');updateDiagram();recalc();
+</script>
+</body>
+</html>
