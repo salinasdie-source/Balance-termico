@@ -166,6 +166,68 @@
   /* App hidden until logged in */
   #app-content { display:none; }
 
+
+  /* ── Conversor flotante ─────────────────── */
+  #conv-fab {
+    position:fixed; bottom:24px; right:20px; z-index:500;
+    width:52px; height:52px; border-radius:50%;
+    background:var(--text); color:var(--bg);
+    border:none; font-size:22px; cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .15s, box-shadow .15s;
+  }
+  #conv-fab:active { transform:scale(0.92); }
+  #conv-modal-backdrop {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.35); z-index:600;
+    align-items:center; justify-content:center; padding:16px;
+  }
+  #conv-modal-backdrop.open { display:flex; }
+  #conv-modal {
+    background:var(--bg); border-radius:var(--radius);
+    border:.5px solid var(--border);
+    width:100%; max-width:420px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.18);
+    overflow:hidden;
+  }
+  #conv-modal .modal-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:.5px solid var(--border);
+  }
+  #conv-modal .modal-header h3 { font-size:15px; font-weight:500; }
+  #conv-modal .modal-close {
+    background:none; border:none; font-size:20px;
+    color:var(--text2); cursor:pointer; padding:0 4px;
+  }
+  #conv-modal .modal-body { padding:16px; }
+  .conv-input-row {
+    display:flex; gap:8px; align-items:center; margin-bottom:14px;
+  }
+  .conv-input-row input {
+    flex:1; font-size:16px; padding:10px 12px;
+    background:var(--bg2); border:.5px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text); outline:none;
+    transition:border-color .15s;
+  }
+  .conv-input-row input:focus { border-color:var(--border2); }
+  .conv-input-row select {
+    font-size:13px; padding:10px 8px;
+    background:var(--bg2); border:.5px solid var(--border);
+    border-radius:var(--radius-sm); color:var(--text); outline:none;
+  }
+  .conv-results {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .conv-result-item {
+    background:var(--bg2); border-radius:var(--radius-sm);
+    padding:10px 12px;
+  }
+  .conv-result-item .lbl { font-size:11px; color:var(--text2); margin-bottom:3px; }
+  .conv-result-item .val { font-size:16px; font-weight:500; color:var(--text); }
+  .conv-result-item.highlight { background:var(--bg3); }
+
 </style>
 </head>
 <body>
@@ -1011,7 +1073,126 @@ function doLogout(){
 }
 
 // App init triggered by login
+
+// ── Conversor de unidades ──────────────────────────────────
+const CONV_UNITS = {
+  W:      { label:'W',           factor:1          },
+  kW:     { label:'kW',          factor:1/1000      },
+  kcal_h: { label:'kcal/h',      factor:0.859845    },
+  BTU_h:  { label:'BTU/h',       factor:3.41214     },
+  fg_h:   { label:'Frigorías/h', factor:0.859845    },
+  TR:     { label:'TR',          factor:1/3516.85   },
+  HP:     { label:'HP',          factor:1/745.7     },
+};
+
+function openConv(){
+  document.getElementById('conv-modal-backdrop').classList.add('open');
+  document.getElementById('conv-val').focus();
+  convertUnits();
+}
+function closeConv(){
+  document.getElementById('conv-modal-backdrop').classList.remove('open');
+}
+function closeConvBackdrop(e){
+  if(e.target===document.getElementById('conv-modal-backdrop')) closeConv();
+}
+function clearConv(){
+  const inp = document.getElementById('conv-val');
+  inp.value = '';
+  inp.focus();
+  document.getElementById('conv-results').innerHTML = '';
+}
+
+// Cerrar con Escape
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeConv(); });
+
+function convertUnits(){
+  const raw  = document.getElementById('conv-val').value;
+  const from = document.getElementById('conv-from').value;
+  const res  = document.getElementById('conv-results');
+  if(raw==='' || raw==='-'){ res.innerHTML=''; return; }
+  const val = parseFloat(raw);
+  if(isNaN(val)){ res.innerHTML=''; return; }
+  const watts = val / CONV_UNITS[from].factor;
+  const fromLabel = CONV_UNITS[from].label;
+  res.innerHTML = '';
+  Object.entries(CONV_UNITS).forEach(([key,u])=>{
+    if(key===from) return;
+    const converted = watts * u.factor;
+    let disp;
+    if(Math.abs(converted)===0)          disp='0';
+    else if(Math.abs(converted)>=10000)  disp=converted.toFixed(0);
+    else if(Math.abs(converted)>=100)    disp=converted.toFixed(1);
+    else if(Math.abs(converted)>=1)      disp=converted.toFixed(3);
+    else if(Math.abs(converted)>=0.001)  disp=converted.toFixed(4);
+    else                                 disp=converted.toExponential(3);
+    res.innerHTML+=`
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:10px 14px;background:var(--bg2);border-radius:var(--radius-sm)">
+        <span style="font-size:13px;color:var(--text2)">${val} ${fromLabel} =</span>
+        <span style="font-size:16px;font-weight:600;color:var(--text)">${disp}
+          <span style="font-size:13px;font-weight:400;color:var(--text2)">${u.label}</span>
+        </span>
+      </div>`;
+  });
+}
+
 </script>
+
+<!-- CONVERSOR FLOTANTE -->
+<button id="conv-fab" onclick="openConv()" title="Conversor de unidades" aria-label="Abrir conversor de unidades">
+  ⇄
+</button>
+
+<div id="conv-modal-backdrop" onclick="closeConvBackdrop(event)">
+  <div id="conv-modal" role="dialog" aria-modal="true" aria-label="Conversor de unidades de capacidad térmica">
+    <div class="modal-header">
+      <h3>⇄ Conversor de unidades</h3>
+      <button class="modal-close" onclick="closeConv()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- BLOQUE 1: VALOR INGRESADO (arriba, destacado) -->
+      <div style="background:var(--bg2);border:2px solid var(--text);border-radius:var(--radius-sm);padding:16px;margin-bottom:10px">
+        <p style="font-size:10px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Valor ingresado</p>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="number" id="conv-val" value="1" step="any" inputmode="decimal"
+                 oninput="convertUnits()"
+                 style="flex:1;width:auto;font-size:28px;font-weight:700;
+                        background:var(--bg);border:1px solid var(--border);
+                        border-radius:6px;color:var(--text);outline:none;
+                        min-width:0;padding:8px 10px">
+          <select id="conv-from" onchange="convertUnits()"
+                  style="width:auto;font-size:15px;font-weight:600;padding:10px 8px;
+                         background:var(--bg);border:1px solid var(--border);
+                         border-radius:6px;color:var(--text);outline:none;flex-shrink:0">
+            <option value="W">W</option>
+            <option value="kW">kW</option>
+            <option value="kcal_h">kcal/h</option>
+            <option value="BTU_h">BTU/h</option>
+            <option value="fg_h">Frigorías/h</option>
+            <option value="TR">TR</option>
+            <option value="HP">HP</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="clearConv()"
+              style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;
+                     background:var(--bg2);border:.5px solid var(--border);
+                     border-radius:var(--radius-sm);color:var(--text2);
+                     font-size:13px;padding:9px;cursor:pointer;margin-bottom:20px">
+        <span style="font-size:15px">✕</span> Borrar valor
+      </button>
+
+      <!-- BLOQUE 2: RESULTADOS (abajo) -->
+      <p style="font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;border-bottom:1.5px solid var(--border2);padding-bottom:6px">↓ Equivalencias</p>
+      <div id="conv-results" style="display:flex;flex-direction:column;gap:6px"></div>
+      <p style="font-size:11px;color:var(--text3);margin-top:14px;text-align:center">
+        1 TR = 3516.85 W &nbsp;·&nbsp; 1 HP = 745.7 W &nbsp;·&nbsp; 1 kcal/h = 1.163 W
+      </p>
+    </div>
+  </div>
+</div>
+
 </div><!-- /app-content -->
 </body>
 </html>
