@@ -8,6 +8,32 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ffffff">
 <title>Balance Térmico — Calefacción y Refrigeración</title>
+
+<!-- PWA Manifest inline -->
+<script>
+(function(){
+  const manifest = {
+    name: "Balance Térmico",
+    short_name: "BalTérmico",
+    description: "Calculadora de cargas térmicas — calefacción y refrigeración",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#ffffff",
+    theme_color: "#378ADD",
+    orientation: "portrait-primary",
+    icons: [
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%23378ADD'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='110' font-family='system-ui'%3E%F0%9F%8C%A1%EF%B8%8F%3C/text%3E%3C/svg%3E", sizes: "192x192", type: "image/svg+xml" },
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%23378ADD'/%3E%3Ctext x='256' y='360' text-anchor='middle' font-size='300' font-family='system-ui'%3E%F0%9F%8C%A1%EF%B8%8F%3C/text%3E%3C/svg%3E", sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.currentScript.parentNode.appendChild(link);
+})();
+</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -1194,5 +1220,64 @@ function convertUnits(){
 </div>
 
 </div><!-- /app-content -->
+
+<!-- Botón flotante "Instalar app" -->
+<button id="pwa-install-btn" onclick="pwsInstall()" style="
+  display:none;position:fixed;bottom:80px;right:16px;z-index:900;
+  background:var(--blue);color:#fff;border:none;border-radius:24px;
+  padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;
+  box-shadow:0 4px 16px rgba(55,138,221,0.4);gap:8px;align-items:center;">
+  ⬇ Instalar app
+</button>
+
+<script>
+// ── Service Worker (caché offline) ──────────────────────────────────────
+const SW_CODE = `
+const CACHE = 'bal-termico-v1';
+const URLS  = [self.location.pathname];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(URLS)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(ks =>
+    Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
+  );
+});
+`;
+
+if ('serviceWorker' in navigator) {
+  const blob = new Blob([SW_CODE], {type:'text/javascript'});
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl, {scope: './'})
+    .catch(e => console.warn('SW registro fallido:', e));
+}
+
+// ── Botón de instalación ────────────────────────────────────────────────
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  _deferredPrompt = null;
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'none';
+});
+function pwsInstall() {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  _deferredPrompt.userChoice.then(() => { _deferredPrompt = null; });
+}
+</script>
+
 </body>
 </html>
